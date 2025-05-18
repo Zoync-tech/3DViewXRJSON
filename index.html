@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Data Output</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body {
+            font-family: 'Monospace', monospace; /* Monospace for the whole page, like a raw data view */
+            margin: 0;
+            padding: 10px; /* Minimal padding */
+            background-color: #ffffff; /* White background, similar to raw file view */
+            color: #111827; /* Dark text for JSON */
+        }
+        /* Hiding the h1 title as requested */
+        h1 {
+            display: none;
+        }
+        #output {
+            background-color: transparent; /* Transparent background for the output pre tag */
+            border: none; /* No border */
+            padding: 0; /* No padding for the pre tag itself, body padding will handle it */
+            border-radius: 0; /* No border radius */
+            white-space: pre-wrap; /* Preserve whitespace and wrap lines */
+            word-wrap: break-word; /* Break long words */
+            font-size: 14px; /* Standard JSON viewer size */
+            line-height: 1.6;
+            box-shadow: none; /* No shadow */
+        }
+        #error {
+            color: #e53e3e; /* Red color for errors */
+            background-color: #fff5f5; /* Light red background for errors */
+            border: 1px solid #fc8181; /* Red border for errors */
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Inter', sans-serif; /* More readable font for errors */
+        }
+        .container {
+            max-width: 100%; /* Full width */
+            margin: 0;
+            padding: 0;
+        }
+        .loader {
+            border: 5px solid #f3f3f3; /* Light grey */
+            border-top: 5px solid #3498db; /* Blue */
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto; /* Centered loader */
+            display: block;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400&family=Monospace&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1>Supabase 'models' Table Data</h1> <div id="loader" class="loader"></div>
+
+        <pre id="output"></pre>
+
+        <div id="error" style="display:none;"></div>
+    </div>
+
+    <script>
+        // -----------------------------------------------------------------------------
+        // Supabase Project Credentials
+        // -----------------------------------------------------------------------------
+        const SUPABASE_URL = 'https://pbzkblxzoxogydtmbioy.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiemtibHh6b3hvZ3lkdG1iaW95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDc0ODc0MDMsImV4cCI6MjA2MzA2MzQwM30.1ta5imSubj5o-pFv00-JEQbmvibCggKPEotf1QShluM';
+
+        // Get references to the HTML elements
+        const outputElement = document.getElementById('output');
+        const errorElement = document.getElementById('error');
+        const loaderElement = document.getElementById('loader');
+        
+        // Initialize the Supabase client
+        // The Supabase object is typically available globally via the CDN script.
+        let supabaseClient;
+        if (typeof supabase !== 'undefined' && typeof supabase.createClient === 'function') {
+            supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } else {
+            console.error('Supabase client (supabase.createClient) is not defined. Make sure the Supabase JS library is loaded correctly.');
+            if(loaderElement) loaderElement.style.display = 'none';
+            if(errorElement) {
+                errorElement.textContent = 'Error: Supabase client library not loaded or initialized correctly. Please check the script tag and network connection.';
+                errorElement.style.display = 'block';
+            }
+            // Stop further execution if supabase is not defined
+            throw new Error('Supabase client not loaded or initialized correctly.');
+        }
+
+
+        /**
+         * Fetches data from the 'models' table and displays it.
+         */
+        async function fetchData() {
+            // Ensure supabaseClient is initialized before trying to use it
+            if (!supabaseClient) {
+                console.error("Supabase client is not initialized. Cannot fetch data.");
+                 if(loaderElement) loaderElement.style.display = 'none';
+                // Error is already displayed by the initialization block if it failed there
+                if(errorElement && errorElement.style.display === 'none') {
+                     errorElement.textContent = 'Supabase client is not initialized.';
+                     errorElement.style.display = 'block';
+                }
+                return;
+            }
+
+            try {
+                // Show loader, hide previous data/error
+                if(loaderElement) loaderElement.style.display = 'block';
+                if(outputElement) outputElement.textContent = '';
+                if(errorElement) {
+                    errorElement.style.display = 'none';
+                    errorElement.textContent = '';
+                }
+
+                // Fetch all rows and all columns from the 'models' table
+                console.log("Attempting to fetch data from 'models' table...");
+                const { data, error } = await supabaseClient
+                    .from('models') // Specify the table name
+                    .select('*');   // Select all columns
+
+                // Hide loader
+                if(loaderElement) loaderElement.style.display = 'none';
+
+                if (error) {
+                    // If an error occurred during the fetch operation
+                    console.error('Error fetching data:', error);
+                    if(errorElement) {
+                        errorElement.textContent = `Error fetching data: ${error.message}\nDetails: ${JSON.stringify(error, null, 2)}`;
+                        errorElement.style.display = 'block';
+                    }
+                    return;
+                }
+
+                if (data) {
+                    // If data was fetched successfully
+                    console.log('Data fetched successfully:', data);
+                    if(outputElement) {
+                        outputElement.textContent = JSON.stringify(data, null, 2); // null for replacer, 2 for indentation
+                        if (data.length === 0) {
+                            outputElement.textContent += "\n\n(The table 'models' exists but is currently empty, or RLS policies are preventing data access for the 'anon' role.)";
+                        }
+                    }
+                } else {
+                    console.warn('No data returned, but no explicit error.');
+                    if(outputElement){
+                         outputElement.textContent = 'No data found. This could mean the "models" table is empty, does not exist, or Row Level Security (RLS) policies are preventing access.';
+                    }
+                }
+
+            } catch (err) {
+                // Catch any other unexpected errors during the process
+                if(loaderElement) loaderElement.style.display = 'none';
+                console.error('An unexpected error occurred:', err);
+                if(errorElement) {
+                    errorElement.textContent = `An unexpected error occurred: ${err.message || String(err)}`;
+                    errorElement.style.display = 'block';
+                }
+            }
+        }
+
+        // Call the function to fetch and display data when the script loads
+        function initializeApp() {
+            // Check if supabase client was initialized correctly before fetching
+            if (typeof supabase !== 'undefined' && typeof supabase.createClient === 'function' && supabaseClient) {
+                fetchData();
+            } else {
+                // If supabase client isn't ready, the error is already shown by the init block.
+                // No need to call fetchData if the client isn't there.
+                console.log("Supabase client not ready, fetchData will not be called by initializeApp.");
+            }
+        }
+
+        if (document.readyState === 'loading') { 
+            document.addEventListener('DOMContentLoaded', initializeApp);
+        } else { 
+            initializeApp();
+        }
+    </script>
+</body>
+</html>
